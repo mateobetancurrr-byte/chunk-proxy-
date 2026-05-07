@@ -6,8 +6,9 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
 const server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -15,7 +16,19 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url === "/") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("chunk-practice proxy ok");
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/message") {
+    if (!ANTHROPIC_KEY) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }));
+      return;
+    }
+
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
@@ -34,7 +47,10 @@ const server = http.createServer((req, res) => {
         let data = "";
         apiRes.on("data", (chunk) => (data += chunk));
         apiRes.on("end", () => {
-          res.writeHead(apiRes.statusCode, { "Content-Type": "application/json" });
+          res.writeHead(apiRes.statusCode, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
           res.end(data);
         });
       });
@@ -50,7 +66,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  res.writeHead(404);
+  res.writeHead(404, { "Content-Type": "text/plain" });
   res.end("Not found");
 });
 
